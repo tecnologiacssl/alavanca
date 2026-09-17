@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alavanca · Simulador de alavancagem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<main id="viewAuth" class="hidden">
+  <div class="auth">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Alavanca</div>
+    <h1 id="authTitle">Entrar</h1>
+    <p class="lead" id="authLead">Acompanhe seus desafios dia a dia.</p>
+    <form id="authForm" novalidate>
+      <label class="field hidden" id="fName"><span>Nome</span><input id="inName" autocomplete="name"></label>
+      <label class="field"><span>E-mail</span><input id="inEmail" type="email" autocomplete="email" inputmode="email"></label>
+      <label class="field"><span>Senha</span><input id="inPass" type="password" autocomplete="current-password"></label>
+      <p class="form-err" id="authErr" role="alert"></p>
+      <button class="btn" id="authBtn" type="submit">Entrar</button>
+    </form>
+    <p class="switch"><span id="switchText">Ainda não tem conta?</span> <button class="link" id="switchBtn" type="button">Criar conta</button></p>
+    <p class="fine">Simulação manual. Nada aqui se conecta a casas de apostas.</p>
+  </div>
+</main>
+
+<!-- ================= APP ================= -->
+<div id="viewApp" class="app hidden">
+  <header class="topbar">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Alavanca</div>
+    <div class="userbox">
+      <span class="save">Salvo neste navegador</span>
+      <span class="avatar" id="avatar" aria-hidden="true"></span>
+      <button class="btn btn-quiet" id="logoutBtn" type="button">Sair</button>
+    </div>
+  </header>
+
+  <!-- Início -->
+  <div id="viewHome">
+    <div class="hello">
+      <h1 id="helloTitle"></h1>
+      <div class="stats">
+        <div class="stat"><small>Desafios em andamento</small><strong class="num" id="stActive">0</strong></div>
+        <div class="stat"><small>Banca em jogo</small><strong class="num" id="stBank">R$ 0,00</strong></div>
+        <div class="stat"><small>Lucro resgatado</small><strong class="num" id="stProfit">R$ 0,00</strong></div>
+      </div>
+    </div>
+
+    <section class="block">
+      <div class="sec-head"><h2>Seus desafios</h2><p id="mineCount"></p></div>
+      <div class="mine" id="mine"></div>
+    </section>
+
+    <section class="block">
+      <div class="sec-head"><h2>Começar um desafio</h2><p>Banca e odd ajustáveis antes de iniciar</p></div>
+      <div class="presets" id="presets"></div>
+    </section>
+
+    <section class="block hidden" id="histBlock">
+      <div class="sec-head"><h2>Histórico</h2><button class="link" id="clearHist" type="button">Limpar</button></div>
+      <div class="hist"><table id="histTable"></table></div>
+    </section>
+  </div>
+
+  <!-- Detalhe -->
+  <div id="viewDetail" class="hidden">
+    <button class="back" id="backBtn" type="button">← Voltar aos desafios</button>
+    <div class="hero" id="hero">
+      <span class="giant" id="heroGiant" aria-hidden="true"></span>
+      <div class="top"><h2 id="heroName"></h2><span class="badge" id="heroBadge"></span></div>
+      <p class="dayline" id="heroDay"></p>
+      <p class="money num" id="heroMoney"></p>
+    </div>
+    <div id="resultBox"></div>
+    <dl class="facts" id="facts"></dl>
+    <div class="actions" id="actions">
+      <button class="btn btn-win" id="btnGreen" type="button">Ganhei (Green)</button>
+      <button class="btn btn-loss" id="btnRed" type="button">Perdi (Red)</button>
+      <button class="btn btn-gold" id="btnCash" type="button">Parar e resgatar lucro</button>
+    </div>
+    <div class="dots" id="dots" role="img"></div>
+    <p class="dots-note" id="dotsNote"></p>
+    <div class="sec-head"><h2>Cronograma</h2></div>
+    <div class="table-box"><table class="sched" id="schedTable"></table></div>
+    <p class="note">"Chance" é a probabilidade de acertar todas as apostas até aquele dia com odd justa (1 ÷ odd). Com a margem das casas, a chance real é menor.</p>
+  </div>
+
+  <footer class="fine">Simulação manual. Nada aqui se conecta a casas de apostas.</footer>
+</div>
+
+<!-- Configurar desafio -->
+<dialog id="setupDlg">
+  <form method="dialog" id="setupForm" novalidate>
+    <div class="setup-head" id="setupHead">
+      <span class="giant" id="setupGiant" aria-hidden="true"></span>
+      <small id="setupKicker"></small>
+      <h2 id="setupTitle"></h2>
+    </div>
+    <div class="dlg">
+      <div class="grid3">
+        <label class="field"><span>Banca inicial (R$)</span><input id="sBank" inputmode="decimal" autocomplete="off"></label>
+        <label class="field"><span>Dias</span><input id="sDays" inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span>Odd fixa</span><input id="sOdd" inputmode="decimal" autocomplete="off"></label>
+      </div>
+      <p class="form-err" id="setupErr" role="alert"></p>
+      <div class="preview" id="setupPreview"></div>
+      <menu>
+        <button class="btn btn-quiet" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn" id="setupGo" value="ok">Iniciar desafio</button>
+      </menu>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmação -->
+<dialog id="confirmDlg">
+  <form method="dialog" class="dlg">
+    <h2 id="cfTitle"></h2>
+    <p id="cfBody"></p>
+    <menu>
+      <button class="btn btn-quiet" value="cancel">Cancelar</button>
+      <button class="btn" id="cfOk" value="ok"></button>
+    </menu>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="script.js" defer></script>
+</body>
+</html>
