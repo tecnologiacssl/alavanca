@@ -116,6 +116,7 @@ function setAuthMode(m, focus = true){
   $("#authTitle").textContent = signup ? "Criar conta" : "Entrar";
   $("#authLead").textContent = signup ? "Leva dez segundos." : "Acompanhe seus desafios dia a dia.";
   $("#fName").classList.toggle("hidden", !signup);
+  $("#fAge").classList.toggle("hidden", !signup);
   $("#authBtn").textContent = signup ? "Criar conta" : "Entrar";
   $("#switchText").textContent = signup ? "Já tem conta?" : "Ainda não tem conta?";
   $("#switchBtn").textContent = signup ? "Entrar" : "Criar conta";
@@ -136,6 +137,7 @@ $("#authForm").addEventListener("submit", async e => {
   try{
     if(authMode === "signup"){
       if(!name){ err.textContent = "Informe seu nome."; $("#inName").focus(); return; }
+      if(!$("#inAge").checked){ err.textContent = "O Alavanca é exclusivo para maiores de 18 anos."; $("#inAge").focus(); return; }
       if(store.accounts[email]){ err.textContent = "Já existe uma conta com esse e-mail. Entre com sua senha."; return; }
       const salt = uid();
       const imported = convertLegacy(legacyPlans);
@@ -471,6 +473,7 @@ $("#clearHist").addEventListener("click", async () => {
 // Os dados ficam no localStorage do navegador.
 function queueCloud(){}
 
+$("#year").textContent = new Date().getFullYear();
 setAuthMode("login", !session);
 render();
 })();
