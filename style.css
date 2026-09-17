@@ -78,6 +78,8 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0;line-height:1
 .stats{display:flex;gap:2rem;flex-wrap:wrap}
 .stat small{display:block;color:var(--muted);font-size:.85rem}
 .stat strong{font-family:var(--display);font-size:1.6rem;font-weight:700}
+.stat-win strong{color:var(--win)} .stat-loss strong{color:var(--loss)}
+.hist td.v-win{color:var(--win);font-weight:600} .hist td.v-loss{color:var(--loss);font-weight:600}
 
 .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin:0 0 1rem}
 .sec-head h2{font-size:1.5rem;font-weight:700}

@@ -271,6 +271,8 @@ function renderHome(){
   $("#stBank").textContent = money(active.reduce((s,p) => s + bankOf(p), 0));
   const cashed = ended.filter(p => p.status === "resgatado" || p.status === "concluido" || p.status === "abandonado").reduce((s,p) => s + (p.finalBank - p.initial), 0);
   $("#stProfit").textContent = money(cashed);
+  const lost = ended.filter(p => p.status === "falhou").reduce((sum,p) => sum + p.initial, 0);
+  $("#stLoss").textContent = money(lost);
 
   // Seus desafios
   const mine = $("#mine"); mine.textContent = "";
@@ -323,7 +325,7 @@ function renderHome(){
   const t = $("#histTable"); t.textContent = "";
   if(ended.length){
     const hr = el("tr");
-    ["Desafio","Encerrado em","Greens","Odd","Resultado","Banca final","Lucro"].forEach(h => hr.appendChild(el("th", {scope:"col"}, h)));
+    ["Desafio","Encerrado em","Greens","Odd","Resultado","Banca final","Lucro / perda"].forEach(h => hr.appendChild(el("th", {scope:"col"}, h)));
     const th = el("thead"); th.appendChild(hr);
     const tb = el("tbody");
     ended.sort((a,b) => (b.endedAt||0) - (a.endedAt||0)).forEach(p => {
@@ -336,7 +338,8 @@ function renderHome(){
       tr.appendChild(el("td", {class:"num"}, dec2.format(p.odd)));
       tr.appendChild(el("td", {class:"st-" + p.status}, STATUS[p.status]));
       tr.appendChild(el("td", {class:"num"}, money(p.finalBank)));
-      tr.appendChild(el("td", {class:"num"}, money(p.finalBank - p.initial)));
+      const diff = p.finalBank - p.initial;
+      tr.appendChild(el("td", {class:"num " + (diff > 0 ? "v-win" : diff < 0 ? "v-loss" : "")}, money(diff)));
       tb.appendChild(tr);
     });
     t.append(th, tb);
