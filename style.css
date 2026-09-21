@@ -138,7 +138,16 @@ section.block{margin-bottom:3.25rem}
 .fact dd{margin:.15rem 0 0;font-family:var(--display);font-weight:700;font-size:1.4rem;overflow-wrap:anywhere}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
 .actions .btn{padding:1.1rem;font-size:1.1rem;border-radius:var(--radius)}
-.actions .btn-gold{grid-column:1/-1;padding:.85rem;font-size:1rem}
+.actions .btn-gold,.actions .btn-quiet{padding:.85rem;font-size:1rem}
+.opts{border:1px solid var(--line);border-radius:var(--radius);padding:.5rem .95rem .6rem;margin:.25rem 0 .5rem}
+.opts legend{font-size:.82rem;color:var(--muted);padding:0 .3rem}
+.opt{display:flex;gap:.6rem;align-items:flex-start;padding:.4rem 0;cursor:pointer;font-size:.95rem}
+.opt input{accent-color:var(--ink);margin:.3rem 0 0;flex:none}
+.hint-line{color:var(--muted);font-size:.9rem;margin:0 0 1.1rem!important}
+.sched tr.cash td:first-child::after{content:" ↩";color:var(--gold);font-weight:700}
+.res-G{color:var(--win);font-weight:600} .res-C{color:var(--gold);font-weight:600} .res-R{color:var(--loss);font-weight:600}
+.odd-diff{font-weight:700;text-decoration:underline dotted;text-underline-offset:3px}
+.dots i.cash{background:var(--gold)}
 .result{border-radius:var(--radius);padding:1.2rem 1.3rem;margin-bottom:1rem;background:var(--win-soft)}
 .result.lost{background:var(--loss-soft)} .result.cash{background:var(--gold-soft)}
 .result h3{font-size:1.6rem;font-weight:700;margin-bottom:.25rem}

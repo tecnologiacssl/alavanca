@@ -78,10 +78,37 @@ const account = () => session ? store.accounts[session] : null;
 const plans = () => account() ? account().plans : [];
 const planById = id => plans().find(p => p.id === id) || null;
 const rowsOf = p => buildSchedule(p.initial, p.days, p.odd) || [];
-const greens = p => p.results.filter(r => r === "G").length;
-function bankOf(p, rows){
+// Cada dia registrado: {r:"G"|"C"|"R", stake, odd, ret} — valores reais informados pelo usuário
+const doneDays = p => p.results.filter(e => e.r !== "R").length;
+function bankOf(p){
   if(p.status === "falhou") return 0;
-  const g = greens(p); return g === 0 ? p.initial : (rows || rowsOf(p))[g-1].bank;
+  const last = p.results[p.results.length-1];
+  return last ? last.ret : p.initial;
+}
+function migratePlan(p){
+  if(!Array.isArray(p.results) || !p.results.some(r => typeof r === "string")) return;
+  const rows = rowsOf(p);
+  p.results = p.results.map((r,i) => typeof r !== "string" ? r :
+    {r, stake: rows[i] ? rows[i].stake : 0, odd: p.odd, ret: (r === "G" && rows[i]) ? rows[i].ret : 0});
+}
+function migrateStore(s){ Object.values(s.accounts || {}).forEach(a => (a.plans || []).forEach(migratePlan)); }
+// Dias já jogados (valores reais) + projeção dos próximos dias com a odd planejada
+function planRows(p){
+  const rows = []; let bank = p.initial;
+  p.results.forEach((e,i) => {
+    const b = e.r === "R" ? 0 : e.ret;
+    rows.push({day:i+1, stake:e.stake, odd:e.odd, ret:e.r === "R" ? 0 : e.ret, bank:b, kind:e.r});
+    bank = b;
+  });
+  if(p.status === "ativo"){
+    let prob = 1;
+    for(let d = p.results.length + 1; d <= p.days; d++){
+      const stake = bank, ret = round2(stake * p.odd); prob /= p.odd;
+      rows.push({day:d, stake, odd:p.odd, ret, bank:ret, kind: d === p.results.length + 1 ? "now" : "after", p:prob});
+      bank = ret;
+    }
+  }
+  return rows;
 }
 function commit(){ store.updatedAt = Date.now(); saveLocal(); queueCloud(); render(); }
 
@@ -141,6 +168,7 @@ $("#authForm").addEventListener("submit", async e => {
       if(store.accounts[email]){ err.textContent = "Já existe uma conta com esse e-mail. Entre com sua senha."; return; }
       const salt = uid();
       const imported = convertLegacy(legacyPlans);
+      imported.forEach(migratePlan);
       store.accounts[email] = {name, email, salt, hash: await hashPw(salt, pass), plans: imported, createdAt: Date.now()};
       legacyPlans = [];
       session = email; setSession(email);
@@ -161,17 +189,17 @@ $("#logoutBtn").addEventListener("click", () => {
 });
 
 /* ================= Ações do desafio ================= */
-function registerResult(planId, dayNumber, result){
+function registerEntry(planId, dayNumber, entry, opts){
   const p = planById(planId);
   if(!p || p.status !== "ativo"){ toast("Este desafio não está em andamento."); return false; }
   const expected = p.results.length + 1;
   if(dayNumber < expected){ toast(`O dia ${dayNumber} já foi registrado.`); return false; }
   if(dayNumber > expected){ toast(`Registre o dia ${expected} antes do dia ${dayNumber}.`); return false; }
   if(dayNumber > p.days){ toast("Todos os dias já foram registrados."); return false; }
-  const rows = rowsOf(p);
-  p.results.push(result);
-  if(result === "R"){ p.status = "falhou"; p.finalBank = 0; p.endedAt = Date.now(); }
-  else if(p.results.length === p.days){ p.status = "concluido"; p.finalBank = rows[p.days-1].bank; p.endedAt = Date.now(); }
+  p.results.push(entry);
+  if(entry.r === "R"){ p.status = "falhou"; p.finalBank = 0; p.endedAt = Date.now(); }
+  else if(opts && opts.stop){ p.status = "resgatado"; p.finalBank = entry.ret; p.endedAt = Date.now(); }
+  else if(p.results.length === p.days){ p.status = "concluido"; p.finalBank = entry.ret; p.endedAt = Date.now(); }
   commit();
   return true;
 }
@@ -281,17 +309,17 @@ function renderHome(){
     mine.appendChild(el("div", {class:"empty"}, "Nenhum desafio em andamento. Escolha um card abaixo para começar."));
   }
   active.sort((a,b) => b.createdAt - a.createdAt).forEach(p => {
-    const g = greens(p), rows = rowsOf(p);
+    const g = doneDays(p), bankNow = bankOf(p);
     const card = el("button", {class:"plan-card c-" + p.color, type:"button", "aria-label": `Abrir desafio ${p.name}`});
     const r1 = el("div", {class:"row"});
     r1.appendChild(el("span", {class:"chip"}, p.name));
     r1.appendChild(el("span", {class:"day-pill"}, `Dia ${g+1} de ${p.days}`));
     const bk = el("div", {class:"bank"});
     bk.appendChild(el("small", null, "Banca atual"));
-    bk.appendChild(el("strong", {class:"num"}, money(bankOf(p, rows))));
+    bk.appendChild(el("strong", {class:"num"}, money(bankNow)));
     const bar = el("div", {class:"bar"}); const fill = el("i"); fill.style.width = (g / p.days * 100) + "%"; bar.appendChild(fill);
     const foot = el("div", {class:"foot"});
-    foot.appendChild(el("span", null, `Hoje: aposte ${money(rows[g].stake)}`));
+    foot.appendChild(el("span", null, `Hoje: aposte ${money(bankNow)}`));
     foot.appendChild(el("span", null, `odd ${dec2.format(p.odd)}`));
     card.append(r1, bk, bar, foot);
     card.addEventListener("click", () => { openId = p.id; view = "detail"; render(); window.scrollTo({top:0}); });
@@ -325,7 +353,7 @@ function renderHome(){
   const t = $("#histTable"); t.textContent = "";
   if(ended.length){
     const hr = el("tr");
-    ["Desafio","Encerrado em","Greens","Odd","Resultado","Banca final","Lucro / perda"].forEach(h => hr.appendChild(el("th", {scope:"col"}, h)));
+    ["Desafio","Encerrado em","Dias","Odd","Resultado","Banca final","Lucro / perda"].forEach(h => hr.appendChild(el("th", {scope:"col"}, h)));
     const th = el("thead"); th.appendChild(hr);
     const tb = el("tbody");
     ended.sort((a,b) => (b.endedAt||0) - (a.endedAt||0)).forEach(p => {
@@ -334,7 +362,7 @@ function renderHome(){
       chip.addEventListener("click", () => { openId = p.id; view = "detail"; render(); window.scrollTo({top:0}); });
       c.appendChild(chip); tr.appendChild(c);
       tr.appendChild(el("td", null, dateFmt(p.endedAt || p.createdAt)));
-      tr.appendChild(el("td", {class:"num"}, `${greens(p)}/${p.days}`));
+      tr.appendChild(el("td", {class:"num"}, `${doneDays(p)}/${p.days}`));
       tr.appendChild(el("td", {class:"num"}, dec2.format(p.odd)));
       tr.appendChild(el("td", {class:"st-" + p.status}, STATUS[p.status]));
       tr.appendChild(el("td", {class:"num"}, money(p.finalBank)));
@@ -347,35 +375,36 @@ function renderHome(){
 }
 
 function renderDetail(p){
-  const rows = rowsOf(p), g = greens(p), bank = bankOf(p, rows);
+  const rows = planRows(p), g = doneDays(p), bank = bankOf(p);
   const active = p.status === "ativo";
   const lostDay = p.status === "falhou" ? p.results.length : 0;
-  const color = "c-" + p.color;
-  $("#viewDetail").className = color;
+  const last = p.results[p.results.length-1];
+  $("#viewDetail").className = "c-" + p.color;
 
   $("#heroGiant").textContent = active ? String(g+1) : p.giant;
   $("#heroName").textContent = p.name;
   $("#heroBadge").textContent = STATUS[p.status];
-  $("#heroDay").textContent = active ? `Dia ${g+1} de ${p.days} · banca atual` : `Banca final · ${p.days} dias, odd ${dec2.format(p.odd)}`;
+  $("#heroDay").textContent = active ? `Dia ${g+1} de ${p.days} · banca atual` : `Banca final · ${p.days} dias, odd planejada ${dec2.format(p.odd)}`;
   $("#heroMoney").textContent = money(active ? bank : p.finalBank);
 
   const facts = $("#facts"); facts.textContent = "";
   const add = (k, v) => { const d = el("div", {class:"fact"}); d.append(el("dt", null, k), el("dd", {class:"num"}, v)); facts.appendChild(d); };
   if(active){
-    add("Aposta de hoje", money(rows[g].stake));
-    add("Retorno se der green", money(rows[g].ret));
+    add("Aposta de hoje", money(bank));
+    add(`Retorno com odd ${dec2.format(p.odd)}`, money(round2(bank * p.odd)));
     add("Lucro até agora", money(bank - p.initial));
     add("Chance de fechar o plano", chance(Math.pow(1/p.odd, p.days - g)));
   } else {
     add("Banca inicial", money(p.initial));
-    add("Greens", `${g} de ${p.days}`);
-    add("Odd fixa", dec2.format(p.odd));
+    add("Dias concluídos", `${g} de ${p.days}`);
+    const odds = p.results.filter(e => e.r === "G" && e.odd).map(e => e.odd);
+    add(odds.length ? "Odd média real" : "Odd planejada", dec2.format(odds.length ? odds.reduce((a,b) => a+b, 0) / odds.length : p.odd));
   }
 
   $("#actions").classList.toggle("hidden", !active);
   if(active){
-    $("#btnGreen").dataset.day = $("#btnRed").dataset.day = String(g+1);
-    $("#btnGreen").disabled = $("#btnRed").disabled = $("#btnCash").disabled = busy;
+    ["#btnGreen","#btnRed","#btnCashOut"].forEach(id => { $(id).dataset.day = String(g+1); $(id).disabled = busy; });
+    $("#btnCash").disabled = busy;
   }
 
   const rb = $("#resultBox"); rb.textContent = "";
@@ -386,13 +415,14 @@ function renderDetail(p){
       box.classList.add("lost");
       box.append(el("h3", null, "Mais sorte na próxima vez"), el("p", null, `Red no dia ${lostDay}. A banca simulada foi zerada.`));
     } else if(p.status === "concluido"){
-      box.append(el("h3", null, "Parabéns! Desafio completo 🎉"), el("p", null, `Green em todos os ${p.days} dias.`));
+      box.append(el("h3", null, "Parabéns! Desafio completo 🎉"), el("p", null, `Você chegou ao fim dos ${p.days} dias.`));
     } else if(p.status === "resgatado"){
       box.classList.add("cash");
-      box.append(el("h3", null, "Parabéns! Lucro resgatado"), el("p", null, g ? `Você parou depois do dia ${g}.` : "Você parou antes da primeira aposta."));
+      const msg = last && last.r === "C" ? `Cash out de ${money(last.ret)} no dia ${p.results.length}.` : (g ? `Você parou depois do dia ${g}.` : "Você parou antes da primeira aposta.");
+      box.append(el("h3", null, "Parabéns! Lucro resgatado"), el("p", null, msg));
     } else {
       box.classList.add("cash");
-      box.append(el("h3", null, "Desafio encerrado"), el("p", null, `Encerrado depois de ${g} green(s).`));
+      box.append(el("h3", null, "Desafio encerrado"), el("p", null, `Encerrado depois de ${g} dia(s).`));
     }
     const dl = el("dl");
     [["Banca inicial", money(p.initial)], ["Banca final", money(p.finalBank)], [p.status === "falhou" ? "Perda" : "Lucro realizado", money(profit)]]
@@ -403,25 +433,31 @@ function renderDetail(p){
 
   const dots = $("#dots"); dots.textContent = "";
   for(let d = 1; d <= p.days; d++){
+    const e = p.results[d-1];
     let c = "";
-    if(d <= g) c = "done"; else if(d === lostDay) c = "lost"; else if(active && d === g+1) c = "now";
+    if(e) c = e.r === "G" ? "done" : e.r === "C" ? "cash" : "lost";
+    else if(active && d === g+1) c = "now";
     dots.appendChild(el("i", {class:c, title:"Dia " + d}));
   }
-  dots.setAttribute("aria-label", `${g} de ${p.days} dias com green`);
-  $("#dotsNote").textContent = `${g} de ${p.days} dias com green · meta final ${money(rows[rows.length-1].bank)}`;
+  dots.setAttribute("aria-label", `${g} de ${p.days} dias concluídos`);
+  $("#dotsNote").textContent = `${g} de ${p.days} dias concluídos` + (active ? ` · meta projetada ${money(rows[rows.length-1].bank)}` : "");
 
   const t = $("#schedTable"); t.textContent = "";
   const hr = el("tr");
-  ["Dia #","Valor da aposta","Retorno potencial","Banca acumulada","Chance"].forEach(h => hr.appendChild(el("th", {scope:"col"}, h)));
+  ["Dia #","Aposta","Odd","Retorno","Banca acumulada","Resultado"].forEach(h => hr.appendChild(el("th", {scope:"col"}, h)));
   const th = el("thead"); th.appendChild(hr);
   const tb = el("tbody"); const frag = document.createDocumentFragment();
+  const KIND = {G:["done","Green"], C:["cash","Cash out"], R:["lost","Red"]};
   rows.forEach(r => {
-    let c = "after";
-    if(r.day <= g) c = "done"; else if(r.day === lostDay) c = "lost"; else if(active && r.day === g+1) c = "now";
-    const tr = el("tr", {class:c});
-    tr.append(el("td", null, "Dia " + r.day), el("td", null, money(r.stake)), el("td", null, money(r.ret)), el("td", null, money(r.bank)), el("td", null, chance(r.p)));
+    const real = KIND[r.kind];
+    const tr = el("tr", {class: real ? real[0] : r.kind});
+    const oddTd = el("td", null, r.kind === "C" || !r.odd ? "—" : dec2.format(r.odd));
+    if(r.kind === "G" && Math.abs(r.odd - p.odd) > 1e-9){ oddTd.classList.add("odd-diff"); oddTd.title = `Planejada: ${dec2.format(p.odd)}`; }
+    const resTd = real ? el("td", {class:"res-" + r.kind}, real[1]) : el("td", null, (r.kind === "now" ? "Hoje · " : "") + chance(r.p));
+    tr.append(el("td", null, "Dia " + r.day), el("td", null, money(r.stake)), oddTd, el("td", null, money(r.ret)), el("td", null, money(r.bank)), resTd);
     frag.appendChild(tr);
   });
+  if(!rows.length){ const tr = el("tr"); tr.appendChild(el("td", {colspan:"6"}, "Nenhum dia registrado.")); frag.appendChild(tr); }
   tb.appendChild(frag); t.append(th, tb);
   const now = t.querySelector("tr.now");
   if(now){ const box = t.parentElement; box.scrollTop = Math.max(0, now.offsetTop - box.clientHeight/2); }
@@ -441,23 +477,106 @@ function render(){
 }
 
 /* ================= Eventos do detalhe ================= */
-async function onResult(result, btn){
-  if(busy || !openId) return;
-  const day = Number(btn.dataset.day);
-  if(result === "R"){
-    const ok = await confirmBox({title:`Registrar red no dia ${day}?`, body:"A banca simulada será zerada e o desafio marcado como falhado. Não dá para desfazer.", ok:"Registrar red", cls:"btn-loss"});
-    if(!ok) return;
-  }
-  busy = true; render();
-  try{
-    if(registerResult(openId, day, result) && result === "G"){
-      const p = planById(openId);
-      toast(p.status === "concluido" ? "Último dia registrado. Desafio completo!" : `Green no dia ${day}! Banca: ${money(bankOf(p))}`);
-    }
-  } finally { busy = false; render(); }
+const toInput = v => v.toFixed(2).replace(".", ",");
+function openDlg(d){ d.returnValue = "cancel"; if(typeof d.showModal === "function") d.showModal(); else d.setAttribute("open",""); }
+function enterSubmits(inputs, btn){
+  inputs.forEach(i => i.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); if(!btn.disabled) btn.click(); } }));
 }
-$("#btnGreen").addEventListener("click", e => onResult("G", e.currentTarget));
-$("#btnRed").addEventListener("click", e => onResult("R", e.currentTarget));
+
+// Green: odd real e valor recebido editáveis
+let gCtx = null;
+function openGreen(day){
+  const p = planById(openId); if(!p) return;
+  const stake = bankOf(p);
+  gCtx = {day, stake, retTouched:false};
+  $("#gTitle").textContent = `Green no dia ${day}`;
+  $("#gStake").value = money(stake);
+  $("#gOdd").value = toInput(p.odd);
+  $("#gRet").value = toInput(round2(stake * p.odd));
+  $("#gErr").textContent = "";
+  updateGreen();
+  openDlg($("#greenDlg"));
+  setTimeout(() => $("#gOdd").select(), 30);
+}
+function readGreen(){
+  const odd = parseNum($("#gOdd").value), ret = parseNum($("#gRet").value);
+  const errs = [];
+  if(!isFinite(odd) || odd < 1.01 || odd > 1000) errs.push("Odd entre 1,01 e 1000.");
+  if(!isFinite(ret) || ret < 0.01 || ret > 1e12) errs.push("Informe o valor recebido.");
+  return {odd, ret: round2(ret), errs};
+}
+function updateGreen(){
+  if(!gCtx) return;
+  const odd = parseNum($("#gOdd").value);
+  if(!gCtx.retTouched && isFinite(odd)) $("#gRet").value = toInput(round2(gCtx.stake * odd));
+  const {ret, errs} = readGreen();
+  $("#gErr").textContent = errs.join(" ");
+  $("#gOk").disabled = errs.length > 0;
+  $("#gHint").textContent = errs.length ? "" : `Lucro do dia: ${money(ret - gCtx.stake)} · nova banca: ${money(ret)}`;
+}
+$("#gOdd").addEventListener("input", updateGreen);
+$("#gRet").addEventListener("input", () => { if(gCtx) gCtx.retTouched = true; updateGreen(); });
+enterSubmits([$("#gOdd"), $("#gRet")], $("#gOk"));
+$("#greenForm").addEventListener("submit", e => {
+  if(!e.submitter || e.submitter.value !== "ok" || !gCtx) return;
+  const {odd, ret, errs} = readGreen();
+  if(errs.length){ e.preventDefault(); updateGreen(); return; }
+  const ctx = gCtx; gCtx = null;
+  if(registerEntry(openId, ctx.day, {r:"G", stake:ctx.stake, odd, ret})){
+    const p = planById(openId);
+    toast(p.status === "concluido" ? "Último dia registrado. Desafio completo!" : `Green no dia ${ctx.day}! Banca: ${money(ret)}`);
+  }
+});
+
+// Cash out: valor resgatado manual
+let cCtx = null;
+function openCashOut(day){
+  const p = planById(openId); if(!p) return;
+  const stake = bankOf(p);
+  cCtx = {day, stake};
+  $("#cTitle").textContent = `Cash out no dia ${day}`;
+  $("#cLead").textContent = `Informe quanto a casa pagou pelo cash out da aposta de ${money(stake)}.`;
+  $("#cVal").value = "";
+  document.querySelector('input[name="cAfter"][value="continue"]').checked = true;
+  $("#cErr").textContent = "";
+  $("#cOk").disabled = true;
+  openDlg($("#cashDlg"));
+  setTimeout(() => $("#cVal").focus(), 30);
+}
+function readCash(){
+  const v = parseNum($("#cVal").value);
+  return {v: round2(v), ok: isFinite(v) && v >= 0.01 && v <= 1e12};
+}
+$("#cVal").addEventListener("input", () => {
+  const {v, ok} = readCash();
+  $("#cOk").disabled = !ok;
+  $("#cErr").textContent = ok || !$("#cVal").value.trim() ? "" : "Informe um valor a partir de R$ 0,01.";
+  if(ok && cCtx) $("#cErr").textContent = "";
+  if(ok && cCtx) $("#cLead").textContent = `Aposta de ${money(cCtx.stake)} · resultado do cash out: ${money(v - cCtx.stake)}.`;
+});
+enterSubmits([$("#cVal")], $("#cOk"));
+$("#cashForm").addEventListener("submit", e => {
+  if(!e.submitter || e.submitter.value !== "ok" || !cCtx) return;
+  const {v, ok} = readCash();
+  if(!ok){ e.preventDefault(); return; }
+  const stop = document.querySelector('input[name="cAfter"]:checked').value === "stop";
+  const ctx = cCtx; cCtx = null;
+  if(registerEntry(openId, ctx.day, {r:"C", stake:ctx.stake, odd:null, ret:v}, {stop})){
+    const p = planById(openId);
+    toast(stop ? `Cash out de ${money(v)} resgatado.` : p.status === "concluido" ? "Último dia registrado. Desafio completo!" : `Cash out registrado. Nova banca: ${money(v)}`);
+  }
+});
+
+$("#btnGreen").addEventListener("click", e => { if(!busy) openGreen(Number(e.currentTarget.dataset.day)); });
+$("#btnCashOut").addEventListener("click", e => { if(!busy) openCashOut(Number(e.currentTarget.dataset.day)); });
+$("#btnRed").addEventListener("click", async e => {
+  if(busy || !openId) return;
+  const day = Number(e.currentTarget.dataset.day);
+  const ok = await confirmBox({title:`Registrar red no dia ${day}?`, body:"A banca simulada será zerada e o desafio marcado como falhado. Não dá para desfazer.", ok:"Registrar red", cls:"btn-loss"});
+  if(!ok) return;
+  const p = planById(openId); if(!p) return;
+  registerEntry(openId, day, {r:"R", stake:bankOf(p), odd:p.odd, ret:0});
+});
 $("#btnCash").addEventListener("click", async () => {
   const p = planById(openId); if(!p || busy) return;
   const bank = bankOf(p);
@@ -476,6 +595,7 @@ $("#clearHist").addEventListener("click", async () => {
 // Os dados ficam no localStorage do navegador.
 function queueCloud(){}
 
+migrateStore(store);
 $("#year").textContent = new Date().getFullYear();
 setAuthMode("login", !session);
 render();

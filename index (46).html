@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alavanca · Simulador de alavancagem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<main id="viewAuth" class="hidden">
+  <div class="auth">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Alavanca</div>
+    <h1 id="authTitle">Entrar</h1>
+    <p class="lead" id="authLead">Acompanhe seus desafios dia a dia.</p>
+    <form id="authForm" novalidate>
+      <label class="field hidden" id="fName"><span>Nome</span><input id="inName" autocomplete="name"></label>
+      <label class="field"><span>E-mail</span><input id="inEmail" type="email" autocomplete="email" inputmode="email"></label>
+      <label class="field"><span>Senha</span><input id="inPass" type="password" autocomplete="current-password"></label>
+      <label class="check hidden" id="fAge"><input type="checkbox" id="inAge"><span>Confirmo que tenho <b>18 anos ou mais</b></span></label>
+      <p class="form-err" id="authErr" role="alert"></p>
+      <button class="btn" id="authBtn" type="submit">Entrar</button>
+    </form>
+    <p class="switch"><span id="switchText">Ainda não tem conta?</span> <button class="link" id="switchBtn" type="button">Criar conta</button></p>
+    <p class="fine">Proibido para menores de 18 anos · Simulação manual, sem vínculo com casas de apostas.</p>
+  </div>
+</main>
+
+<!-- ================= APP ================= -->
+<div id="viewApp" class="app hidden">
+  <header class="topbar">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Alavanca</div>
+    <div class="userbox">
+      <span class="save">Salvo neste navegador</span>
+      <span class="avatar" id="avatar" aria-hidden="true"></span>
+      <button class="btn btn-quiet" id="logoutBtn" type="button">Sair</button>
+    </div>
+  </header>
+
+  <!-- Início -->
+  <div id="viewHome">
+    <div class="hello">
+      <h1 id="helloTitle"></h1>
+      <div class="stats">
+        <div class="stat"><small>Desafios em andamento</small><strong class="num" id="stActive">0</strong></div>
+        <div class="stat"><small>Banca em jogo</small><strong class="num" id="stBank">R$ 0,00</strong></div>
+        <div class="stat stat-win"><small>Lucro resgatado</small><strong class="num" id="stProfit">R$ 0,00</strong></div>
+        <div class="stat stat-loss"><small>Total perdido</small><strong class="num" id="stLoss">R$ 0,00</strong></div>
+      </div>
+    </div>
+
+    <section class="block">
+      <div class="sec-head"><h2>Seus desafios</h2><p id="mineCount"></p></div>
+      <div class="mine" id="mine"></div>
+    </section>
+
+    <section class="block">
+      <div class="sec-head"><h2>Começar um desafio</h2><p>Banca e odd ajustáveis antes de iniciar</p></div>
+      <div class="presets" id="presets"></div>
+    </section>
+
+    <section class="block hidden" id="histBlock">
+      <div class="sec-head"><h2>Histórico</h2><button class="link" id="clearHist" type="button">Limpar</button></div>
+      <div class="hist"><table id="histTable"></table></div>
+    </section>
+  </div>
+
+  <!-- Detalhe -->
+  <div id="viewDetail" class="hidden">
+    <button class="back" id="backBtn" type="button">← Voltar aos desafios</button>
+    <div class="hero" id="hero">
+      <span class="giant" id="heroGiant" aria-hidden="true"></span>
+      <div class="top"><h2 id="heroName"></h2><span class="badge" id="heroBadge"></span></div>
+      <p class="dayline" id="heroDay"></p>
+      <p class="money num" id="heroMoney"></p>
+    </div>
+    <div id="resultBox"></div>
+    <dl class="facts" id="facts"></dl>
+    <div class="actions" id="actions">
+      <button class="btn btn-win" id="btnGreen" type="button">Ganhei (Green)</button>
+      <button class="btn btn-loss" id="btnRed" type="button">Perdi (Red)</button>
+      <button class="btn btn-quiet" id="btnCashOut" type="button">Registrar cash out</button>
+      <button class="btn btn-gold" id="btnCash" type="button">Parar e resgatar lucro</button>
+    </div>
+    <div class="dots" id="dots" role="img"></div>
+    <p class="dots-note" id="dotsNote"></p>
+    <div class="sec-head"><h2>Cronograma</h2></div>
+    <div class="table-box"><table class="sched" id="schedTable"></table></div>
+    <p class="note">"Chance" é a probabilidade de acertar todas as apostas até aquele dia com odd justa (1 ÷ odd). Com a margem das casas, a chance real é menor.</p>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <div class="foot-inner">
+    <div class="foot-top">
+      <div>
+        <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Alavanca</div>
+        <p class="mission">Não queremos que você aposte. Queremos que quem já aposta enxergue o risco em números e pare a tempo.</p>
+        <p class="mission-sub">O Alavanca não incentiva, não indica e não recebe nada de casas de apostas. É uma ferramenta de simulação e disciplina, feita para ajudar a controlar a banca e diminuir o dinheiro que as bets tiram de quem perdeu o controle.</p>
+      </div>
+      <div class="age" role="note">
+        <span class="age-badge" aria-hidden="true">18+</span>
+        <div><strong>Proibido para menores de 18 anos</strong><span>Apostas são permitidas por lei apenas para adultos.</span></div>
+      </div>
+    </div>
+
+    <div class="foot-grid">
+      <div>
+        <h4>Aposte com sabedoria</h4>
+        <ul class="tips">
+          <li><b>Aposta não é investimento.</b> Não conte com ela como renda.</li>
+          <li><b>Só use dinheiro que pode perder</b>, nunca o das contas do mês.</li>
+          <li><b>Defina limites</b> de valor e de tempo antes de começar.</li>
+          <li><b>Não tente recuperar perdas</b> aumentando as apostas.</li>
+          <li><b>Na alavancagem, um único red zera tudo.</b> Resgatar cedo é uma escolha válida.</li>
+          <li><b>Se deixou de ser diversão, pare</b> e procure ajuda.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Precisa de ajuda?</h4>
+        <ul class="help">
+          <li><a href="https://www.gov.br/fazenda/pt-br/composicao/orgaos/secretaria-de-premios-e-apostas/autoexclusao" target="_blank" rel="noopener">Autoexclusão de apostas (gov.br)</a><span>Bloqueia seu CPF em todas as bets autorizadas de uma vez, a partir de 1 mês.</span></li>
+          <li>CAPS e UBS<span>Atendimento gratuito pelo SUS para quem sente que as apostas viraram problema.</span></li>
+          <li><a class="tel" href="tel:188">CVV · 188</a><span>Apoio emocional gratuito, 24 horas. Também em <a href="https://cvv.org.br" target="_blank" rel="noopener">cvv.org.br</a>.</span></li>
+          <li><a href="https://jogadoresanonimos.com.br" target="_blank" rel="noopener">Jogadores Anônimos</a><span>Grupos de apoio para quem quer parar de jogar.</span></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Casas mais acessadas do Brasil</h4>
+        <ol class="houses">
+          <li>Betano</li><li>Superbet</li><li>7Games</li><li>Brazino777</li><li>bet365</li>
+          <li>Bet7k</li><li>R7 Bet</li><li>Cassino Pix</li><li>Esportes da Sorte</li><li>Bet da Sorte</li>
+        </ol>
+        <p class="houses-note">Ranking de acessos mensais de março de 2026 (levantamento Bônus de Apostas, dados Ahrefs e Similarweb). Listadas apenas como referência de mercado: não há parceria, patrocínio ou recomendação. Antes de qualquer cadastro, confira se a casa é autorizada pela SPA/MF e usa domínio .bet.br.</p>
+      </div>
+    </div>
+
+    <div class="foot-bottom">
+      <span>© <span id="year">2026</span> <strong>Alavanca</strong> · Simulador manual de gestão de banca</span>
+      <span>Não somos casa de apostas e não processamos apostas ou pagamentos.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Configurar desafio -->
+<dialog id="setupDlg">
+  <form method="dialog" id="setupForm" novalidate>
+    <div class="setup-head" id="setupHead">
+      <span class="giant" id="setupGiant" aria-hidden="true"></span>
+      <small id="setupKicker"></small>
+      <h2 id="setupTitle"></h2>
+    </div>
+    <div class="dlg">
+      <div class="grid3">
+        <label class="field"><span>Banca inicial (R$)</span><input id="sBank" inputmode="decimal" autocomplete="off"></label>
+        <label class="field"><span>Dias</span><input id="sDays" inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span>Odd fixa</span><input id="sOdd" inputmode="decimal" autocomplete="off"></label>
+      </div>
+      <p class="form-err" id="setupErr" role="alert"></p>
+      <div class="preview" id="setupPreview"></div>
+      <menu>
+        <button class="btn btn-quiet" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn" id="setupGo" value="ok">Iniciar desafio</button>
+      </menu>
+    </div>
+  </form>
+</dialog>
+
+<!-- Registrar green -->
+<dialog id="greenDlg">
+  <form method="dialog" class="dlg" id="greenForm" novalidate>
+    <h2 id="gTitle">Green</h2>
+    <p>Confira com o bilhete da casa. Se a odd ou o valor recebido forem diferentes, corrija aqui.</p>
+    <div class="grid3">
+      <label class="field"><span>Valor apostado</span><input id="gStake" readonly tabindex="-1"></label>
+      <label class="field"><span>Odd real</span><input id="gOdd" inputmode="decimal" autocomplete="off"></label>
+      <label class="field"><span>Valor recebido (R$)</span><input id="gRet" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <p class="form-err" id="gErr" role="alert"></p>
+    <p class="hint-line" id="gHint"></p>
+    <menu>
+      <button class="btn btn-quiet" value="cancel" formnovalidate>Cancelar</button>
+      <button class="btn btn-win" id="gOk" value="ok">Confirmar green</button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- Registrar cash out -->
+<dialog id="cashDlg">
+  <form method="dialog" class="dlg" id="cashForm" novalidate>
+    <h2 id="cTitle">Cash out</h2>
+    <p id="cLead"></p>
+    <label class="field"><span>Valor resgatado (R$)</span><input id="cVal" inputmode="decimal" autocomplete="off"></label>
+    <fieldset class="opts">
+      <legend>Depois do cash out</legend>
+      <label class="opt"><input type="radio" name="cAfter" value="continue" checked><span><b>Continuar o desafio</b> usando esse valor como nova banca</span></label>
+      <label class="opt"><input type="radio" name="cAfter" value="stop"><span><b>Encerrar e resgatar</b> esse valor</span></label>
+    </fieldset>
+    <p class="form-err" id="cErr" role="alert"></p>
+    <menu>
+      <button class="btn btn-quiet" value="cancel" formnovalidate>Cancelar</button>
+      <button class="btn" id="cOk" value="ok">Registrar cash out</button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- Confirmação -->
+<dialog id="confirmDlg">
+  <form method="dialog" class="dlg">
+    <h2 id="cfTitle"></h2>
+    <p id="cfBody"></p>
+    <menu>
+      <button class="btn btn-quiet" value="cancel">Cancelar</button>
+      <button class="btn" id="cfOk" value="ok"></button>
+    </menu>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="script.js" defer></script>
+</body>
+</html>
